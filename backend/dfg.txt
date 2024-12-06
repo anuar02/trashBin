@@ -1,0 +1,3 @@
+rsync -avz --exclude 'node_modules' --exclude '.git' --exclude '.env' \
+-e "ssh -i ~/.ssh/your-key.pem" \
+. ubuntu@16.16.117.114 :~/app
