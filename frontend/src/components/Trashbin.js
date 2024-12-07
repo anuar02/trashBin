@@ -17,6 +17,7 @@ const BinVisualization = ({ fullness }) => (
                 <div className="h-2 bg-slate-900 opacity-50"></div>
             </div>
 
+
             <div className="flex-1 p-6">
                 <div className="h-full relative">
                     {[0, 25, 50, 75, 100].map((level) => (
