@@ -1,6 +1,6 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Activity, MapPin, AlertCircle, Clock, ThermometerSun, Weight, Bell, Trash2 } from 'lucide-react';
+import { AlertCircle, Clock, ThermometerSun, Weight } from 'lucide-react';
 
 const BinVisualization = ({ fullness }) => (
     <div className="relative w-48 h-64 mx-auto">
