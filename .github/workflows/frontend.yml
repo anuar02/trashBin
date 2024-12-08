@@ -41,21 +41,43 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Create server.js
+        run: |
+          echo 'const express = require("express");
+          const path = require("path");
+          
+          const app = express();
+          const PORT = process.env.PORT || 4000;
+          
+          // Serve static files from the React app
+          app.use(express.static(__dirname));
+          
+          // Handle React routing, return all requests to React app
+          app.get("*", (req, res) => {
+            res.sendFile(path.join(__dirname, "index.html"));
+          });
+          
+          app.listen(PORT, () => {
+            console.log(`Frontend server running on port ${PORT}`);
+          });' > build/server.js
+
+      - name: Update package.json
+        run: |
+          echo '{
+            "name": "frontend-server",
+            "version": "1.0.0",
+            "main": "server.js",
+            "dependencies": {
+              "express": "^4.18.2"
+            }
+          }' > build/package.json
+
       - name: Deploy to EC2
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_key
           chmod 600 deploy_key
-          
-          # Create a temporary deployment directory
-          mkdir deploy
-          cp -r build/* deploy/
-          cp server.js package.json package-lock.json deploy/
-          
-          # Deploy all necessary files
           rsync -avz --delete -e "ssh -i deploy_key -o StrictHostKeyChecking=no" \
-            deploy/ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/smart-bin/frontend/
-          
-          # Restart frontend service
+            build/ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/smart-bin/frontend/
           ssh -i deploy_key -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
             'cd /var/www/smart-bin/frontend && \
             npm install --production && \
