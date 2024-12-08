@@ -46,7 +46,7 @@ const TrashBin = () => {
     const distance = 16.0;
     const latitude = -6.2070;
     const longitude = 106.8451;
-    const temperature = 22.5;
+    const temperature = 22.7;
     const lastCollection = "07.03.2024 14:30";
     const estimatedFillTime = "09.03.2024 16:00";
     const weight = 3.2;
