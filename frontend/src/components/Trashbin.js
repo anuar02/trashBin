@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {AlertCircle, Clock, MapPin, ThermometerSun, Weight} from 'lucide-react';
 
@@ -16,7 +16,6 @@ const BinVisualization = ({ fullness }) => (
             <div className="h-8 bg-gradient-to-r from-slate-700 to-slate-800">
                 <div className="h-2 bg-slate-900 opacity-50"></div>
             </div>
-
 
             <div className="flex-1 p-10">
                 <div className="h-full relative">
@@ -42,23 +41,54 @@ const BinVisualization = ({ fullness }) => (
 );
 
 const TrashBin = () => {
-    const fullness = 27;
-    const distance = 16.0;
-    const latitude = -6.2070;
-    const longitude = 106.8451;
-    const temperature = 22.7;
-    const lastCollection = "07.03.2024 14:30";
-    const estimatedFillTime = "09.03.2024 16:00";
-    const weight = 3.2;
-    const wastetype = "Острые Медицинские Отходы";
-    const binId = "МЕД-001";
-    const department = "Хирургическое Отделение";
-    const historyData = [
-        { time: '12:00', fullness: 20 },
-        { time: '12:05', fullness: 22 },
-        { time: '12:10', fullness: 25 },
-        { time: '12:15', fullness: 27 },
-    ];
+    const [binData, setBinData] = useState({
+        fullness: 0,
+        distance: 0,
+        latitude: 0,
+        longitude: 0,
+        temperature: 0,
+        lastCollection: "",
+        estimatedFillTime: "",
+        weight: 0,
+        wasteType: "Острые Медицинские Отходы",
+        binId: "МЕД-001",
+        department: "Хирургическое Отделение"
+    });
+    const [historyData, setHistoryData] = useState([]);
+
+    const fetchBinData = async () => {
+        try {
+            const response = await fetch('http://localhost:3000/api/waste-bins/МЕД-001');
+            const data = await response.json();
+            setBinData(data);
+        } catch (error) {
+            console.error('Error fetching bin data:', error);
+        }
+    };
+
+    const fetchHistoryData = async () => {
+        try {
+            const response = await fetch('http://localhost:3000/api/waste-bins/МЕД-001/history');
+            const data = await response.json();
+            setHistoryData(data);
+        } catch (error) {
+            console.error('Error fetching history data:', error);
+        }
+    };
+
+    useEffect(() => {
+        // Initial fetch
+        fetchBinData();
+        fetchHistoryData();
+
+        // Set up periodic refresh
+        const interval = setInterval(() => {
+            fetchBinData();
+            fetchHistoryData();
+        }, 60000); // Refresh every minute
+
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-6" style={{height: '100vh'}}>
@@ -81,11 +111,11 @@ const TrashBin = () => {
                                 <div className="flex items-center justify-between mb-4">
                                     <div>
                                         <h2 className="text-xl font-semibold text-slate-800">Статус Контейнера</h2>
-                                        <p className="text-slate-500 text-sm">{binId} - {department}</p>
+                                        <p className="text-slate-500 text-sm">{binData.binId} - {binData.department}</p>
                                     </div>
-                                    <div className="text-3xl font-bold text-teal-600">{fullness}%</div>
+                                    <div className="text-3xl font-bold text-teal-600">{binData.fullness}%</div>
                                 </div>
-                                <BinVisualization fullness={fullness} />
+                                <BinVisualization fullness={binData.fullness} />
                             </div>
 
                             <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200 hover:shadow-md transition-shadow">
@@ -93,20 +123,20 @@ const TrashBin = () => {
                                 <div className="space-y-3 text-sm">
                                     <div className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
                                         <span className="text-slate-600">Тип:</span>
-                                        <span className="font-medium">{wastetype}</span>
+                                        <span className="font-medium">{binData.wasteType}</span>
                                     </div>
                                     <div className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
                                         <span className="text-slate-600">Вес:</span>
                                         <span className="font-medium flex items-center gap-2">
                                             <Weight className="w-4 h-4" />
-                                            {weight} кг
+                                            {binData.weight} кг
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
                                         <span className="text-slate-600">Температура:</span>
                                         <span className="font-medium flex items-center gap-2">
                                             <ThermometerSun className="w-4 h-4" />
-                                            {temperature}°C
+                                            {binData.temperature}°C
                                         </span>
                                     </div>
                                 </div>
@@ -142,7 +172,6 @@ const TrashBin = () => {
                     </div>
 
                     <div className="space-y-6">
-
                         <div className="bg-gradient-to-br from-teal-600 to-teal-500 rounded-xl shadow-lg p-6 text-white">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-lg font-semibold">Статус Системы</h2>
@@ -161,11 +190,11 @@ const TrashBin = () => {
                             <div className="space-y-4 text-sm">
                                 <div className="p-3 bg-slate-600/50 rounded-lg">
                                     <div className="text-slate-300 mb-1">Последний Сбор:</div>
-                                    <div className="font-medium">{lastCollection}</div>
+                                    <div className="font-medium">{binData.lastCollection}</div>
                                 </div>
                                 <div className="p-3 bg-slate-600/50 rounded-lg">
                                     <div className="text-slate-300 mb-1">Ожидаемое Заполнение:</div>
-                                    <div className="font-medium">{estimatedFillTime}</div>
+                                    <div className="font-medium">{binData.estimatedFillTime}</div>
                                 </div>
                             </div>
                         </div>
@@ -178,16 +207,14 @@ const TrashBin = () => {
                             <div className="space-y-3 text-sm">
                                 <div className="p-3 bg-slate-500/50 rounded-lg flex justify-between">
                                     <span className="opacity-75">Широта:</span>
-                                    <span className="font-mono">{latitude}</span>
+                                    <span className="font-mono">{binData.latitude}</span>
                                 </div>
                                 <div className="p-3 bg-slate-500/50 rounded-lg flex justify-between">
                                     <span className="opacity-75">Долгота:</span>
-                                    <span className="font-mono">{longitude}</span>
+                                    <span className="font-mono">{binData.longitude}</span>
                                 </div>
                             </div>
                         </div>
-
-
                     </div>
                 </div>
             </div>

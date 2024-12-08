@@ -18,7 +18,7 @@ mongoose.connect(process.env.MONGODB_URI, {
     console.error('MongoDB connection error:', error);
 });
 
-// Schema matches frontend data structure
+// Schema remains the same
 const wasteBinSchema = new mongoose.Schema({
     binId: { type: String, default: 'МЕД-001' },
     department: { type: String, default: 'Хирургическое Отделение' },
@@ -27,8 +27,8 @@ const wasteBinSchema = new mongoose.Schema({
     distance: { type: Number, default: 0 },
     weight: { type: Number, default: 0 },
     temperature: { type: Number, default: 22.7 },
-    latitude: { type: Number },
-    longitude: { type: Number },
+    latitude: { type: Number, default: 43.2364 },
+    longitude: { type: Number, default: 76.9457 },
     lastCollection: { type: Date, default: Date.now },
     lastUpdate: { type: Date, default: Date.now }
 });
@@ -43,6 +43,79 @@ const historySchema = new mongoose.Schema({
 const WasteBin = mongoose.model('WasteBin', wasteBinSchema);
 const History = mongoose.model('History', historySchema);
 
+// Mock data generator
+const generateMockData = () => {
+    const now = moment();
+    const baseFullness = 20 + Math.random() * 30; // Random fullness between 20-50%
+
+    return {
+        distance: Math.floor(Math.random() * 50),
+        fullness: baseFullness,
+        weight: (baseFullness/100 * 5).toFixed(1),
+        temperature: (22 + Math.random() * 2).toFixed(1),
+        latitude: 43.2364 + (Math.random() - 0.5) * 0.001,
+        longitude: 76.9457 + (Math.random() - 0.5) * 0.001,
+        timestamp: now.format()
+    };
+};
+
+// Generate mock history data
+const generateMockHistory = () => {
+    const history = [];
+    const now = moment();
+    let baseFullness = 20;
+
+    for (let i = 23; i >= 0; i--) {
+        baseFullness += (Math.random() - 0.3) * 5; // Slight random variation
+        baseFullness = Math.max(0, Math.min(100, baseFullness)); // Keep between 0-100
+
+        history.push({
+            binId: 'МЕД-001',
+            time: moment(now).subtract(i, 'hours').format('HH:mm'),
+            fullness: Math.round(baseFullness),
+            timestamp: moment(now).subtract(i, 'hours').toDate()
+        });
+    }
+    return history;
+};
+
+// Initialize mock data if none exists
+const initializeMockData = async () => {
+    const existingBin = await WasteBin.findOne({ binId: 'МЕД-001' });
+    if (!existingBin) {
+        const mockData = generateMockData();
+        await WasteBin.create({
+            binId: 'МЕД-001',
+            ...mockData
+        });
+
+        const mockHistory = generateMockHistory();
+        await History.insertMany(mockHistory);
+    }
+};
+
+initializeMockData();
+
+// Update mock data periodically
+setInterval(async () => {
+    const mockData = generateMockData();
+    await WasteBin.findOneAndUpdate(
+        { binId: 'МЕД-001' },
+        {
+            ...mockData,
+            lastUpdate: new Date()
+        }
+    );
+
+    await History.create({
+        binId: 'МЕД-001',
+        time: moment().format('HH:mm'),
+        fullness: mockData.fullness,
+        timestamp: new Date()
+    });
+}, 5 * 60 * 1000); // Update every 5 minutes
+
+// Routes remain the same
 app.get('/api/waste-bins/:binId', async (req, res) => {
     try {
         const bin = await WasteBin.findOne({ binId: req.params.binId });
@@ -85,17 +158,21 @@ app.post('/api/waste-level', async (req, res) => {
     try {
         const { distance, latitude, longitude } = req.body;
 
-        const fullness = Math.max(0, Math.min(100, (1 - distance/100) * 100));
-        const weight = (fullness/100 * 5).toFixed(1);
+        // If ESP data is provided, use it; otherwise, use mock data
+        const mockData = generateMockData();
+        const data = {
+            distance: distance || mockData.distance,
+            latitude: latitude || mockData.latitude,
+            longitude: longitude || mockData.longitude,
+            fullness: distance ? Math.max(0, Math.min(100, (1 - distance/100) * 100)) : mockData.fullness,
+            weight: distance ? ((1 - distance/100) * 5).toFixed(1) : mockData.weight,
+            temperature: mockData.temperature
+        };
 
         const bin = await WasteBin.findOneAndUpdate(
             { binId: 'МЕД-001' },
             {
-                fullness,
-                distance,
-                weight,
-                latitude,
-                longitude,
+                ...data,
                 lastUpdate: new Date()
             },
             { upsert: true, new: true }
@@ -104,7 +181,7 @@ app.post('/api/waste-level', async (req, res) => {
         await History.create({
             binId: 'МЕД-001',
             time: moment().format('HH:mm'),
-            fullness,
+            fullness: data.fullness,
             timestamp: new Date()
         });
 
