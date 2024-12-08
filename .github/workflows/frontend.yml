@@ -1,4 +1,3 @@
-# ..github/workflows/frontend.yml
 name: Frontend CI/CD
 
 on:
@@ -46,7 +45,20 @@ jobs:
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_key
           chmod 600 deploy_key
+          
+          # Create a temporary deployment directory
+          mkdir deploy
+          cp -r build/* deploy/
+          cp server.js package.json package-lock.json deploy/
+          
+          # Deploy all necessary files
           rsync -avz --delete -e "ssh -i deploy_key -o StrictHostKeyChecking=no" \
-            build/ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/smart-bin/frontend/
+            deploy/ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/smart-bin/frontend/
+          
+          # Restart frontend service
           ssh -i deploy_key -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
-            'cd /var/www/smart-bin/frontend && pm2 restart frontend-app'
+            'cd /var/www/smart-bin/frontend && \
+            npm install --production && \
+            pm2 delete frontend-app || true && \
+            PORT=4000 pm2 start server.js --name frontend-app && \
+            pm2 save'

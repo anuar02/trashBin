@@ -18,7 +18,7 @@ const BinVisualization = ({ fullness }) => (
             </div>
 
 
-            <div className="flex-1 p-6">
+            <div className="flex-1 p-10">
                 <div className="h-full relative">
                     {[0, 25, 50, 75, 100].map((level) => (
                         <div key={level}
@@ -61,7 +61,7 @@ const TrashBin = () => {
     ];
 
     return (
-        <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+        <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-6" style={{height: '100vh'}}>
             <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-8">
                     <h1 className="text-4xl font-bold text-slate-800 mb-3">
@@ -142,6 +142,17 @@ const TrashBin = () => {
                     </div>
 
                     <div className="space-y-6">
+
+                        <div className="bg-gradient-to-br from-teal-600 to-teal-500 rounded-xl shadow-lg p-6 text-white">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-semibold">Статус Системы</h2>
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                                    <span className="text-sm">Онлайн</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl shadow-lg p-6 text-white">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-lg font-semibold">Время Сбора</h2>
@@ -176,15 +187,7 @@ const TrashBin = () => {
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-br from-teal-600 to-teal-500 rounded-xl shadow-lg p-6 text-white">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-semibold">Статус Системы</h2>
-                                <div className="flex items-center space-x-3">
-                                    <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-                                    <span className="text-sm">Онлайн</span>
-                                </div>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
             </div>
