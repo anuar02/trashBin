@@ -8,17 +8,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Use MongoDB URI from .env
+// MongoDB connection with improved timeout settings
 mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
-    useUnifiedTopology: true
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 15000,
+    socketTimeoutMS: 45000,
+    connectTimeoutMS: 15000,
+    writeConcern: {
+        w: 1,
+        j: false
+    }
 }).then(() => {
     console.log('Connected to MongoDB successfully');
 }).catch((error) => {
     console.error('MongoDB connection error:', error);
 });
 
-// Schema remains the same
+// Schemas
 const wasteBinSchema = new mongoose.Schema({
     binId: { type: String, default: 'МЕД-001' },
     department: { type: String, default: 'Хирургическое Отделение' },
@@ -66,8 +73,8 @@ const generateMockHistory = () => {
     let baseFullness = 20;
 
     for (let i = 23; i >= 0; i--) {
-        baseFullness += (Math.random() - 0.3) * 5; // Slight random variation
-        baseFullness = Math.max(0, Math.min(100, baseFullness)); // Keep between 0-100
+        baseFullness += (Math.random() - 0.3) * 5;
+        baseFullness = Math.max(0, Math.min(100, baseFullness));
 
         history.push({
             binId: 'МЕД-001',
@@ -79,46 +86,57 @@ const generateMockHistory = () => {
     return history;
 };
 
-// Initialize mock data if none exists
+// Initialize mock data with timeout
 const initializeMockData = async () => {
-    const existingBin = await WasteBin.findOne({ binId: 'МЕД-001' });
-    if (!existingBin) {
-        const mockData = generateMockData();
-        await WasteBin.create({
-            binId: 'МЕД-001',
-            ...mockData
-        });
+    try {
+        const existingBin = await WasteBin.findOne({ binId: 'МЕД-001' }).maxTimeMS(5000);
+        if (!existingBin) {
+            const mockData = generateMockData();
+            await WasteBin.create({
+                binId: 'МЕД-001',
+                ...mockData
+            });
 
-        const mockHistory = generateMockHistory();
-        await History.insertMany(mockHistory);
+            const mockHistory = generateMockHistory();
+            await History.insertMany(mockHistory, { timeout: 5000 });
+        }
+    } catch (error) {
+        console.error('Error initializing mock data:', error);
     }
 };
 
 initializeMockData();
 
-// Update mock data periodically
+// Update mock data periodically with timeout
 setInterval(async () => {
-    const mockData = generateMockData();
-    await WasteBin.findOneAndUpdate(
-        { binId: 'МЕД-001' },
-        {
-            ...mockData,
-            lastUpdate: new Date()
-        }
-    );
+    try {
+        const mockData = generateMockData();
+        await WasteBin.findOneAndUpdate(
+            { binId: 'МЕД-001' },
+            {
+                ...mockData,
+                lastUpdate: new Date()
+            },
+            {
+                maxTimeMS: 8000
+            }
+        );
 
-    await History.create({
-        binId: 'МЕД-001',
-        time: moment().format('HH:mm'),
-        fullness: mockData.fullness,
-        timestamp: new Date()
-    });
-}, 5 * 60 * 1000); // Update every 5 minutes
+        await History.create({
+            binId: 'МЕД-001',
+            time: moment().format('HH:mm'),
+            fullness: mockData.fullness,
+            timestamp: new Date()
+        });
+    } catch (error) {
+        console.error('Error updating mock data:', error);
+    }
+}, 5 * 60 * 1000);
 
-// Routes remain the same
+// Routes with improved error handling and timeouts
 app.get('/api/waste-bins/:binId', async (req, res) => {
     try {
-        const bin = await WasteBin.findOne({ binId: req.params.binId });
+        const bin = await WasteBin.findOne({ binId: req.params.binId }).maxTimeMS(8000);
         if (!bin) {
             return res.status(404).json({ message: 'Bin not found' });
         }
@@ -140,7 +158,8 @@ app.get('/api/waste-bins/:binId/history', async (req, res) => {
     try {
         const history = await History.find({ binId: req.params.binId })
             .sort('-timestamp')
-            .limit(24);
+            .limit(24)
+            .maxTimeMS(8000);
 
         const formattedHistory = history.map(h => ({
             time: moment(h.timestamp).format('HH:mm'),
@@ -158,7 +177,6 @@ app.post('/api/waste-level', async (req, res) => {
     try {
         const { distance, latitude, longitude } = req.body;
 
-        // If ESP data is provided, use it; otherwise, use mock data
         const mockData = generateMockData();
         const data = {
             distance: distance || mockData.distance,
@@ -175,7 +193,11 @@ app.post('/api/waste-level', async (req, res) => {
                 ...data,
                 lastUpdate: new Date()
             },
-            { upsert: true, new: true }
+            {
+                upsert: true,
+                new: true,
+                maxTimeMS: 8000
+            }
         );
 
         await History.create({
@@ -196,6 +218,15 @@ app.post('/api/waste-level', async (req, res) => {
         console.error('Error updating waste level:', error);
         res.status(500).json({ message: error.message });
     }
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+    console.error('Unhandled error:', error);
+    res.status(500).json({
+        message: 'Internal server error',
+        error: error.message
+    });
 });
 
 const PORT = process.env.PORT || 5000;
